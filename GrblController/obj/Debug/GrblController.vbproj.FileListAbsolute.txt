@@ -1,0 +1,22 @@
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\bin\Debug\GrblController.exe.config
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\bin\Debug\GrblController.exe
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\bin\Debug\GrblController.pdb
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\bin\Debug\GrblController.xml
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.vbprojResolveAssemblyReference.cache
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.Form1.resources
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.Resources.resources
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.vbproj.GenerateResource.Cache
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.exe
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.xml
+C:\Users\barto_000\AppData\Local\Temporary Projects\GrblController\obj\Debug\GrblController.pdb
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\bin\Debug\GrblController.exe.config
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.exe
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.xml
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.pdb
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\bin\Debug\GrblController.exe
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\bin\Debug\GrblController.pdb
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\bin\Debug\GrblController.xml
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.vbprojResolveAssemblyReference.cache
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.FormMain.resources
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.Resources.resources
+C:\Users\barto_000\Documents\Visual Studio 2015\Projects\GrblController\GrblController\obj\Debug\GrblController.vbproj.GenerateResource.Cache
