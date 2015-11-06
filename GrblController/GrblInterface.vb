@@ -7,14 +7,15 @@
 '
 '  *  It will raise an event when status is available
 '
-'   TO DO       
-'       Cancel a file send
+'   TO DO              
 '       Block adding to the queue during file send
 '
 
 Public Class GrblInterface
     Private Const GRBL_STATUS_COMMAND As String = "?"
-    Private Const MACRO_PROBE_ZERO As String = "***PROBE_ZERO***"
+    Private Const MACRO_PROBE_ZERO As String = "***PROBE_ZERO***"  'this is used for auto probing
+
+    Public Const ERR_CMD_QUEUE_NOT_EMPTY = "Command queue not empty"
 
     Private WithEvents mSerialPort As SerialPort
     Private WithEvents StatusTimer As Timer  'used to periodically send the "?" status update command
@@ -36,6 +37,7 @@ Public Class GrblInterface
     Private mZProbePosition As Double 'where was the last Z probe
     Private mZProbeThickness As Double = 0 'how think is the Z probe.
     Private mLastError As String
+    Private mLastAlarm As String
     Private mVerbose As Boolean = True  'this supresses some status messages, see the code
 
 
@@ -66,7 +68,7 @@ Public Class GrblInterface
         Queue = New List(Of String)
         StatusTimer = New Timer
 
-        'these are the basic grbl values
+        'these are the standard grbl values
         mSerialPort.BaudRate = 115200
         mSerialPort.DataBits = 8
         mSerialPort.DtrEnable = True  'dtr is the thing that reboots Arduinos on connection
@@ -87,26 +89,17 @@ Public Class GrblInterface
 
     End Sub
 
-#Region "Serial Port"
-    Public Sub Open() 'used to open the serial port
-        Try
-            mSerialPort.Open()
-        Catch ex As Exception
-            RaiseEvent GrblError(ex.Message)
-        End Try
-    End Sub
 
-    Public Sub Close()
-        mSerialPort.Close()
-    End Sub
+#Region "Properties"
 
+    'is the serial port open
     Public ReadOnly Property IsOpen() As Boolean
         Get
             Return mSerialPort.IsOpen
         End Get
     End Property
 
-
+    'the serial port name
     Public Property PortName() As String
         Get
             Return mPortName
@@ -117,7 +110,7 @@ Public Class GrblInterface
         End Set
     End Property
 
-
+    'will this class automatically request status from grbl
     Public Property AutoStatusUpdates() As Boolean 'setting this to true will cause a timer to send regular updates
         Get
             Return StatusTimer.Enabled
@@ -128,6 +121,7 @@ Public Class GrblInterface
         End Set
     End Property
 
+
     Public Property Verbose() As Boolean   'set to false to stop status updates in line sent event
         Get
             Return mVerbose
@@ -137,21 +131,27 @@ Public Class GrblInterface
         End Set
     End Property
 
+    Public ReadOnly Property State As String
+        Get
+            Return mGRblState
+        End Get
+    End Property
+#End Region
 
-    'this gets the most recent update of the value of an axis in a coordinate system
-    'There are two.  Make sure the grbl $10 value supports the system you want or it will return zeros.
-    Public Function GetCoordinate(ByVal CoordSystem As CoordSystem, ByVal Axis As AxisLetter)
-        Select Case CoordSystem
-            Case CoordSystem.Machine
-                Return MachinePosition(Axis)
-            Case CoordSystem.Work
-                Return WorkPosition(Axis)
-            Case CoordSystem.Probe
-                Return Probe(Axis)
-            Case Else
-                Return 0
-        End Select
-    End Function
+
+#Region "Serial Port"
+    Public Sub Open() 'used to open the serial port
+        Try
+            Queue.Clear() 'there should be no stuff in the queue
+            mSerialPort.Open()
+        Catch ex As Exception
+            RaiseEvent GrblError(ex.Message)
+        End Try
+    End Sub
+
+    Public Sub Close()
+        mSerialPort.Close()
+    End Sub
 
     'this event occurs everytime at least one charater is received
     Private Sub SerialDataReceived(sender As Object, e As SerialDataReceivedEventArgs) Handles mSerialPort.DataReceived
@@ -209,7 +209,7 @@ Public Class GrblInterface
                 RaiseEvent LineSent(Command)
             End If
         Else
-            'TO DO raise an error
+            Throw New Exception("Port Not Open")
         End If
     End Sub
 
@@ -246,6 +246,7 @@ Public Class GrblInterface
 
     Public Sub Clear()
         Queue.Clear()
+        FileRunning = False
     End Sub
 
 #End Region
@@ -267,15 +268,17 @@ Public Class GrblInterface
                 RaiseEvent DataReceived(Resp)
 
             Case "A"
-                Dim Message As String = ""
+                'Dim Message As String = ""
 
 
                 If Resp.Substring(0, 5).Equals("ALARM") Then
-                    Message = Resp.Substring(7)
-                    RaiseEvent Alarm(Message)
-                    If Message = "Probe fail" Then
+                    mLastAlarm = Resp.Substring(7)
+
+                    RaiseEvent Alarm(mLastAlarm)
+                    If mLastAlarm = "Probe fail" Then
                         Queue.Clear()
                     End If
+
                 End If
 
                     RaiseEvent DataReceived(Resp)
@@ -405,24 +408,31 @@ Public Class GrblInterface
 
     Public Sub LoadFile(ByVal FileName As String)
         Dim readline As String
-        Dim reader As New System.IO.StreamReader(FileName)
 
-        'the queue should be empty before a file is loaded
-        If Queue.Count = 0 Then
+        Try
+            Dim reader As New System.IO.StreamReader(FileName)
 
-            Do While Not reader.EndOfStream
-                readline = reader.ReadLine().Trim()
-                If readline <> "" Then
-                    Queue.Add(readline + vbCr)
-                End If
-            Loop
+            'the queue should be empty before a file is loaded
+            If Queue.Count = 0 Then
 
-            reader.Close()
+                Do While Not reader.EndOfStream
+                    readline = reader.ReadLine().Trim()
+                    If readline <> "" Then
+                        Queue.Add(readline + vbCr)
+                    End If
+                Loop
 
-            mFileRowCount = Queue.Count
-        Else
-            Throw New Exception("Command queue not empty")
-        End If
+                reader.Close()
+
+                mFileRowCount = Queue.Count
+            Else
+                Throw New Exception(ERR_CMD_QUEUE_NOT_EMPTY)
+            End If
+        Catch ex As Exception
+            Throw New Exception(ex.Message)
+        End Try
+
+
     End Sub
 
     Public Sub BeginFileSend()
@@ -433,39 +443,70 @@ Public Class GrblInterface
             Throw New Exception("No file loaded")
         End If
     End Sub
-
+    'returns the number of rows in the file.  This is used to give feedback to the user 
     Public Function GetFileRowCount() As Integer
         Return mFileRowCount
     End Function
 
+    'the current line being sent.  This is used for user feedback
     Public Function GetCurentFileRow() As Integer
         Return mFileRowCount - Queue.Count
     End Function
 
+    'cnacel all files inb the queue.  The best way to do this is a feedhold firt, then a reset
+    Public Sub FileSendCancel()
+        Queue.Clear()
+
+        FileRunning = False
+        mFileRowCount = 0
+
+        RaiseEvent FileSendComplete()
+    End Sub
+
 #End Region
 
+    'this will run a series of commands to set work Z Zero
     Public Sub DoAutoProbe(ProbeDistance As Double, ProbeRate As Double, ProbeThickness As Double)
         ' Send: G38.2 Z-100 F100    this send the probe down 100mm at 100mm/min looking for the contact.  The vals come from the paramaters
         ' Rec: [PRB:-739.000,-789.000,-9.124:1] 'this tells you where the probe made contact.  It still had to decelerate after this point
         ' Send G53 G0 Zxxx.xxx (where xxx.xx is the z position at touch) it should move up a little to compensate for the decel
         ' Send G10 L20 P0 Z (probe thickness)  'sets the current Z work coordinate to the thickness of the probe. 
-
-        If Queue.Count = 0 Then
-            'mAutoProbe = True
-            mZProbeThickness = ProbeThickness
-            Queue.Add("G38.2 Z-" + ProbeDistance.ToString + " F" + ProbeRate.ToString + vbCr)
-            Queue.Add("G4 P0.25" + vbCr) ' a dwell for dramatic effect
-            Queue.Add(MACRO_PROBE_ZERO) ' this is a flag for the sender to format the correct command
-            Queue.Add("G10 L20 P0 Z" + ProbeThickness.ToString() + vbCr)
-            Queue.Add("G4 P0.25" + vbCr) ' a dwell for dramatic effect
-            Queue.Add("G91 G0 Z10" + vbCr) 'move up to top of Z
-            Queue.Add("G90" + vbCr) 'move up to top of Z
-            SendNextCommand()
+        If mSerialPort.IsOpen Then
+            If Queue.Count = 0 Then
+                'mAutoProbe = True
+                mZProbeThickness = ProbeThickness
+                Queue.Add("G38.2 Z-" + ProbeDistance.ToString + " F" + ProbeRate.ToString + vbCr)
+                Queue.Add("G4 P0.25" + vbCr) ' a dwell for dramatic effect
+                Queue.Add(MACRO_PROBE_ZERO) ' this is a flag for the sender to format the correct command
+                Queue.Add("G10 L20 P0 Z" + ProbeThickness.ToString() + vbCr)
+                Queue.Add("G4 P0.25" + vbCr) ' a dwell for dramatic effect
+                Queue.Add("G91 G0 Z10" + vbCr) 'move up to top of Z
+                Queue.Add("G90" + vbCr) 'move up to top of Z
+                SendNextCommand()
+            Else
+                Throw New Exception("Queue must be empty")
+            End If
         Else
-            Throw New Exception("Queue must be empty")
+            Throw New Exception("Port Not Open")
         End If
     End Sub
 
+    'this gets the most recent update of the value of an axis in a coordinate system
+    'There are two.  Make sure the grbl $10 value supports the system you want or it will return zeros.
+    Public Function GetCoordinate(ByVal CoordSystem As CoordSystem, ByVal Axis As AxisLetter) As Double
+        Select Case CoordSystem
+            Case CoordSystem.Machine
+                Return MachinePosition(Axis)
+            Case CoordSystem.Work
+                Return WorkPosition(Axis)
+            Case CoordSystem.Probe
+                Return Probe(Axis)
+            Case Else
+                Return 0
+        End Select
+    End Function
+
+    'these requests status on a regular interval.  It does not have to wait for an OK  
     Private Sub StatusTimer_tick() Handles StatusTimer.Tick
         If mSerialPort.IsOpen And grblResponding Then
             SendImmediate(GRBL_STATUS_COMMAND)
